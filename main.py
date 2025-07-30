@@ -1,24 +1,18 @@
-# backend/main.py
-from fastapi import FastAPI, UploadFile, Form
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, UploadFile, Form, Request
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import sqlite3, os, uuid
-from flask import Flask, render_template
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
-
 
 app = FastAPI()
-os.makedirs("images", exist_ok=True)
 
-# створення БД
+# Папки
+os.makedirs("images", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# БД
 conn = sqlite3.connect("data.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute('''
@@ -40,6 +34,12 @@ cursor.execute('''
 ''')
 conn.commit()
 
+# Головна сторінка
+@app.get("/", response_class=HTMLResponse)
+def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+# Додати звіт
 @app.post("/add_report")
 async def add_report(lat: float = Form(), lon: float = Form(),
                      description: str = Form(), image: UploadFile = Form()):
@@ -53,21 +53,25 @@ async def add_report(lat: float = Form(), lon: float = Form(),
     conn.commit()
     return {"status": "ok"}
 
+# Отримати звіти
 @app.get("/reports")
 def get_reports():
     cursor.execute("SELECT id, lat, lon, description, image_path, likes FROM reports")
     return cursor.fetchall()
 
+# Зображення
 @app.get("/image/{filename}")
 def get_image(filename: str):
     return FileResponse(f"images/{filename}")
 
+# Лайки
 @app.post("/like/{report_id}")
 def like(report_id: str):
     cursor.execute("UPDATE reports SET likes = likes + 1 WHERE id = ?", (report_id,))
     conn.commit()
     return {"status": "liked"}
 
+# Коментарі
 @app.post("/comment/{report_id}")
 def comment(report_id: str, text: str = Form()):
     comment_id = str(uuid.uuid4())
