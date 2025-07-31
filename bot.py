@@ -1,9 +1,23 @@
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import os, requests
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message
+import asyncio
+
+user_states = {}
+
+bot = Bot(token="ТВОКЕН")
+dp = Dispatcher()
+
+@dp.message()
+async def echo_handler(message: Message):
+    await message.answer("Привіт!")
+
+async def start_bot():
+    await dp.start_polling(bot)
 
 # Стан користувачів: photo, description, location
-user_states = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
