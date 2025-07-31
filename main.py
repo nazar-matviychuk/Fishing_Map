@@ -5,25 +5,25 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import sqlite3, os, uuid
 import asyncio
-from fastapi import FastAPI
-from bot import start_bot  # це функція запуску бота
+
+from bot import start_bot  # 🚀 функція запуску Telegram-бота
 
 app = FastAPI()
 
-@app.get("/")
-async def root():
-    return {"message": "API працює"}
-
+# ▶️ Запускаємо бота при старті
 @app.on_event("startup")
 async def on_startup():
-    asyncio.create_task(start_bot())  # запуститься окремо і не заблокує API
+    asyncio.create_task(start_bot())
 
-# Папки
+# 🗂️ Папки
 os.makedirs("images", exist_ok=True)
+os.makedirs("static", exist_ok=True)
+os.makedirs("templates", exist_ok=True)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# БД
+# 🧠 База даних
 conn = sqlite3.connect("data.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute('''
@@ -45,12 +45,12 @@ cursor.execute('''
 ''')
 conn.commit()
 
-# Головна сторінка
+# 🌐 Головна сторінка (HTML)
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# Додати звіт
+# 📤 Додати звіт
 @app.post("/add_report")
 async def add_report(lat: float = Form(), lon: float = Form(),
                      description: str = Form(), image: UploadFile = Form()):
@@ -64,25 +64,25 @@ async def add_report(lat: float = Form(), lon: float = Form(),
     conn.commit()
     return {"status": "ok"}
 
-# Отримати звіти
+# 📥 Отримати звіти
 @app.get("/reports")
 def get_reports():
     cursor.execute("SELECT id, lat, lon, description, image_path, likes FROM reports")
     return cursor.fetchall()
 
-# Зображення
+# 🖼️ Показати зображення
 @app.get("/image/{filename}")
 def get_image(filename: str):
     return FileResponse(f"images/{filename}")
 
-# Лайки
+# 👍 Лайк
 @app.post("/like/{report_id}")
 def like(report_id: str):
     cursor.execute("UPDATE reports SET likes = likes + 1 WHERE id = ?", (report_id,))
     conn.commit()
     return {"status": "liked"}
 
-# Коментарі
+# 💬 Додати коментар
 @app.post("/comment/{report_id}")
 def comment(report_id: str, text: str = Form()):
     comment_id = str(uuid.uuid4())
@@ -90,6 +90,7 @@ def comment(report_id: str, text: str = Form()):
     conn.commit()
     return {"status": "comment_added"}
 
+# 📄 Отримати коментарі
 @app.get("/comments/{report_id}")
 def get_comments(report_id: str):
     cursor.execute("SELECT text FROM comments WHERE report_id = ?", (report_id,))
