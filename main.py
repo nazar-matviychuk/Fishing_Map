@@ -5,8 +5,20 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import sqlite3, os, uuid
 import asyncio
+from bot import start_bot  # функція, яка запускає бота
+from backend import app    # FastAPI app
+import uvicorn
 
-from bot import start_bot  # 🚀 функція запуску Telegram-бота
+async def main():
+    # Паралельно запускаємо бота і бекенд
+    bot_task = asyncio.create_task(start_bot())
+    server_task = asyncio.create_task(uvicorn.run(app, host="0.0.0.0", port=10000))
+    
+    await asyncio.gather(bot_task, server_task)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
 
 app = FastAPI()
 
