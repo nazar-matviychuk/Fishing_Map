@@ -1,33 +1,34 @@
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import os, requests
-from aiogram import Bot, Dispatcher
-from aiogram.types import Message
-import asyncio
 
+# Стан користувачів
 user_states = {}
 
-bot = Bot(token="ТВОКЕН")
-dp = Dispatcher()
-
-@dp.message()
-async def echo_handler(message: Message):
-    await message.answer("Привіт!")
-
+# ▶️ Основна функція запуску бота
 async def start_bot():
-    await dp.start_polling(bot)
+    app = Application.builder().token("8391256868:AAGzJD1VMqNDZfvSnTavBdHSQko13Tl1ENE").build()
 
-# Стан користувачів: photo, description, location
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_description))
+    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+    app.add_handler(MessageHandler(filters.COMMAND, unknown))
 
+    print("🤖 Бот запущено")
+    await app.run_polling()
+
+# 📥 Старт
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_states[chat_id] = {"step": "photo"}
     await update.message.reply_text("Привіт! Надішли фото з риболовлі 📸")
 
+# 📸 Фото
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     state = user_states.get(chat_id, {})
-    
+
     if state.get("step") != "photo":
         await update.message.reply_text("Я зараз чекаю інший етап. Якщо щось не так — напиши /start.")
         return
@@ -45,6 +46,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Фото збережено ✅. Тепер надішли короткий опис 🎣.")
 
+# 📝 Опис
 async def handle_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     state = user_states.get(chat_id, {})
@@ -65,6 +67,7 @@ async def handle_description(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
     )
 
+# 📍 Геолокація
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     state = user_states.get(chat_id, {})
@@ -78,7 +81,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     description = state.get("description")
     photo_path = state.get("photo_path")
 
-    # Надіслати на сервер
     with open(photo_path, "rb") as img:
         response = requests.post("http://localhost:8000/add_report",
                                  files={"image": img},
@@ -88,7 +90,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                      "description": description
                                  })
 
-    # Очистити тимчасові дані
     os.remove(photo_path)
     user_states.pop(chat_id, None)
 
@@ -97,20 +98,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ Сталася помилка при відправці звіту.")
 
+# ❓ Невідома команда
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Не розумію цю команду. Почни з /start.")
-
-def main():
-    app = Application.builder().token("8391256868:AAGzJD1VMqNDZfvSnTavBdHSQko13Tl1ENE").build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_description))
-    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
-    app.add_handler(MessageHandler(filters.COMMAND, unknown))
-
-    print("🤖 Бот запущено")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
