@@ -4,8 +4,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import sqlite3, os, uuid
+import asyncio
+from fastapi import FastAPI
+from bot import start_bot  # це функція запуску бота
 
 app = FastAPI()
+
+@app.get("/")
+async def root():
+    return {"message": "API працює"}
+
+@app.on_event("startup")
+async def on_startup():
+    asyncio.create_task(start_bot())  # запуститься окремо і не заблокує API
 
 # Папки
 os.makedirs("images", exist_ok=True)
